@@ -30,8 +30,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .top-bar-title{font-size:13px;font-weight:600;color:var(--blue-navy);letter-spacing:.02em;}
 .top-bar-date{font-size:11px;color:var(--text-sec);}
 .content{flex:1;overflow-y:auto;padding:0 0 80px;}
-.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:var(--bg);border-top:0.5px solid var(--border);display:grid;grid-template-columns:repeat(8,1fr);padding:6px 0 max(6px,env(safe-area-inset-bottom));}
-.nav-item{display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 2px;border:none;background:transparent;cursor:pointer;color:var(--text-hint);font-size:9px;font-family:inherit;}
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:420px;background:var(--bg);border-top:0.5px solid var(--border);display:grid;grid-template-columns:repeat(9,1fr);padding:6px 0 max(6px,env(safe-area-inset-bottom));}
+.nav-item{display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 1px;border:none;background:transparent;cursor:pointer;color:var(--text-hint);font-size:8px;font-family:inherit;}
 .nav-item i{font-size:18px;}
 .nav-item.active{color:var(--blue);}
 .nav-item .badge{width:14px;height:14px;border-radius:50%;background:var(--red);color:#fff;font-size:8px;display:flex;align-items:center;justify-content:center;position:absolute;top:-2px;right:-2px;}
@@ -320,7 +320,19 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
   <div class="content">
     <!-- ════ 브리핑 ════ -->
     <div class="scr on" id="scr-home">
-      <div id="cheer-hero"></div>
+      <!-- 마음터치 메인 히어로 -->
+      <div id="mindtouch-hero" style="background:linear-gradient(135deg,#26215C 0%,#534AB7 100%);border-radius:var(--radius-lg);padding:1.5rem;margin-bottom:.875rem;text-align:center;">
+        <div style="font-size:10px;color:#AFA9EC;letter-spacing:.1em;margin-bottom:.75rem;">✦ 마음터치 ✦</div>
+        <div style="font-size:15px;color:#fff;line-height:1.85;font-style:italic;margin-bottom:.75rem;">"불안이 밀려올 때, 지금 숨 쉬고 있다는 것 하나만 떠올려봐.<br>불안과 감사는 뇌에서 동시에 켜지지 않아 —<br>작은 감사가 불안 스위치를 꺼줘."</div>
+        <div style="font-size:11px;color:#AFA9EC;margin-bottom:1rem;line-height:1.6;">불안은 뇌의 편도체가 만들어내는 신호예요. 작은 것 하나에 감사하면<br>뇌가 불안 모드에서 벗어나 다시 생각할 수 있는 상태로 돌아와요.</div>
+        <div style="display:flex;gap:6px;justify-content:center;margin-bottom:.75rem;">
+          <button onclick="gratitudeCheck(this)" style="flex:1;max-width:110px;padding:8px 4px;border-radius:var(--radius);border:0.5px solid #7F77DD;background:rgba(255,255,255,0.08);font-size:11px;cursor:pointer;font-family:inherit;color:#E6E4FC;">숨 쉬고 있어 🫁</button>
+          <button onclick="gratitudeCheck(this)" style="flex:1;max-width:110px;padding:8px 4px;border-radius:var(--radius);border:0.5px solid #7F77DD;background:rgba(255,255,255,0.08);font-size:11px;cursor:pointer;font-family:inherit;color:#E6E4FC;">오늘 버텼어 💪</button>
+          <button onclick="gratitudeCheck(this)" style="flex:1;max-width:110px;padding:8px 4px;border-radius:var(--radius);border:0.5px solid #7F77DD;background:rgba(255,255,255,0.08);font-size:11px;cursor:pointer;font-family:inherit;color:#E6E4FC;">밥 먹었어 🍚</button>
+        </div>
+        <div id="gratitude-msg" style="display:none;font-size:12px;color:#E6E4FC;padding:.625rem;background:rgba(255,255,255,0.12);border-radius:var(--radius);font-weight:500;"></div>
+      </div>
+
       <div class="focus-lock" id="focus-lock">
         <div class="fl-title">집중 모드 작동 중</div>
         <div class="fl-sub">유튜브 · 인스타 · 카톡은<br>타이머가 끝날 때까지 내려놔!</div>
@@ -539,6 +551,17 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
           </div>
 
           <button class="btn" style="width:100%;margin-top:.625rem;font-size:11px;" onclick="document.getElementById('body-double-panel').style.display='none'">닫기</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ 공부법 ════ -->
+    <div class="scr" id="scr-study">
+      <div style="padding:.75rem;background:var(--bg-sec);border-radius:var(--radius-lg);margin-bottom:.875rem;display:flex;align-items:center;gap:8px;">
+        <i class="ti ti-books" style="font-size:20px;color:var(--blue)" aria-hidden="true"></i>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--text);">공부법 & 학습 전략</div>
+          <div style="font-size:11px;color:var(--text-sec);margin-top:1px;">설명충 모드 · 습관화 원리 · 지식 구조화</div>
         </div>
       </div>
       <!-- 설명충 모드 카드 -->
@@ -791,6 +814,7 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
     <button class="nav-item" onclick="goTab('tasks')" id="nav-tasks"><i class="ti ti-checklist"></i>할일</button>
     <button class="nav-item" onclick="goTab('adhd')" id="nav-adhd"><i class="ti ti-brain"></i>ADHD</button>
     <button class="nav-item" onclick="goTab('cheer')" id="nav-cheer"><i class="ti ti-heart"></i>응원</button>
+    <button class="nav-item" onclick="goTab('study')" id="nav-study"><i class="ti ti-book-2"></i>공부법</button>
     <button class="nav-item" onclick="goTab('kafa')" id="nav-kafa"><i class="ti ti-plane"></i>공사</button>
     <button class="nav-item" onclick="goTab('notice')" id="nav-notice" style="position:relative;"><i class="ti ti-bell"></i>공지<div class="badge" id="notice-badge" style="display:none;">0</div></button>
   </nav>
@@ -817,7 +841,8 @@ function goTab(id){
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
   document.getElementById('scr-'+id).classList.add('on');
   document.getElementById('nav-'+id).classList.add('active');
-  if(id==='home'){renderCheer();renderStreak();renderHomeNotices();}
+  if(id==='home'){renderStreak();renderHomeNotices();}
+  if(id==='study'){}
   if(id==='cheer'){renderQPending();renderQManage();}
   if(id==='notice'){renderSchoolNotices();renderMomNotices();}
   if(id==='plan'){renderRanges();}
@@ -832,8 +857,7 @@ function lss(k,v){ try{localStorage.setItem(k,JSON.stringify(v));}catch(e){} }
 // 格言 (응원하는 힘)
 // ══════════════════════════════
 const Q_SEED=[
-  {id:1,text:"하늘은 스스로 돕는 자를 돕는다.",author:"벤저민 프랭클린",cat:"motivation",status:"approved",memo:"",todayPick:true},
-  {id:2,text:"성공은 매일 반복한 작은 노력들의 합이다.",author:"로버트 콜리어",cat:"success",status:"approved",memo:""},
+  {id:2,text:"성공은 매일 반복한 작은 노력들의 합이다.",author:"로버트 콜리어",cat:"success",status:"approved",memo:"",todayPick:true},
   {id:3,text:"꿈을 향해 자신 있게 나아가고, 상상하던 삶을 살기 위해 노력하라.",author:"헨리 데이비드 소로",cat:"motivation",status:"pending",memo:"공군사관학교 얘기하다 생각났어"},
   {id:4,text:"두려움 없이 앞으로 나아가라. 용기는 두려움이 없는 게 아니라 두려움에도 불구하고 행동하는 것이다.",author:"넬슨 만델라",cat:"military",status:"pending",memo:"집중 못할 때 보여줘"},
   {id:5,text:"지금 자면 꿈을 꾸지만, 지금 공부하면 꿈을 이룬다.",author:"하버드 도서관 격언",cat:"study",status:"approved",memo:""},
@@ -843,13 +867,6 @@ let quotes=ls('yc_quotes',JSON.parse(JSON.stringify(Q_SEED)));
 let aiQuoteTemp=null;
 
 function saveQuotes(){ lss('yc_quotes',quotes); }
-
-function renderCheer(){
-  const q=quotes.find(q=>q.todayPick&&q.status==='approved')||quotes.find(q=>q.status==='approved');
-  const el=document.getElementById('cheer-hero');
-  if(!q){el.innerHTML='<div style="text-align:center;padding:1rem;font-size:13px;color:var(--text-sec);">응원 탭에서 격언을 승인해주세요!</div>';return;}
-  el.innerHTML=`<div class="hero-quote"><div class="hq-eyebrow">✦ 윤찬이를 응원하는 힘 ✦</div><div class="hq-text">"${q.text}"</div><div class="hq-author">— ${q.author}</div>${q.memo?`<div class="hq-memo">엄마의 말: ${q.memo}</div>`:''}<div class="hq-cat">${CATS[q.cat]||q.cat}</div></div>`;
-}
 
 function renderQPending(){
   const el=document.getElementById('q-pending-list');
@@ -872,7 +889,7 @@ function deleteQ(id){quotes=quotes.filter(q=>q.id!==id);saveQuotes();renderQMana
 const AI_POOL={
   motivation:[{text:"당신이 할 수 있다고 생각하든, 할 수 없다고 생각하든 — 당신이 옳다.",author:"헨리 포드"},{text:"불가능이란 아무것도 하지 않는 사람들의 변명이다.",author:"무하마드 알리"}],
   success:[{text:"성공은 최종 목적지가 아니다. 계속하는 용기가 중요하다.",author:"윈스턴 처칠"},{text:"탁월함은 한 번의 행동이 아니라 습관이다.",author:"아리스토텔레스"}],
-  study:[{text:"배움은 보물이다. 어디서나 그 주인을 따라다닌다.",author:"중국 속담"},{text:"지식에 투자하는 것이 최고의 이자를 낳는다.",author:"벤저민 프랭클린"}],
+  study:[{text:"배움은 보물이다. 어디서나 그 주인을 따라다닌다.",author:"중국 속담"}],
   military:[{text:"리더는 희망을 파는 상인이다.",author:"나폴레옹"},{text:"승리는 준비된 자에게 돌아간다. 사람들은 그것을 행운이라 부른다.",author:"로알 아문센"}],
   life:[{text:"인생은 자전거 타기와 같다. 균형을 잡으려면 계속 움직여야 한다.",author:"알버트 아인슈타인"},{text:"넘어지는 것이 실패가 아니다. 넘어진 채로 있는 것이 실패다.",author:"메리 피크포드"}],
   book:[{text:"어떤 것을 시작하는 것은 그것을 완성하는 것보다 어렵지 않다.",author:"괴테, 파우스트"},{text:"희망이란 아무리 어두운 밤에도 동이 튼다는 것을 아는 것이다.",author:"마틴 루터 킹 Jr."}],
@@ -1310,6 +1327,25 @@ function submitExplain(){
 }
 
 // ══════════════════════════════
+// 마음터치 감사 버튼
+// ══════════════════════════════
+function gratitudeCheck(btn){
+  const msgs=[
+    '뇌가 불안 모드에서 벗어나고 있어. 잘했어! ✈️',
+    '작은 감사가 편도체를 진정시켜. 지금 뇌가 바뀌는 중이야 💜',
+    '그 사실 하나만으로 충분해. 오늘도 잘하고 있어 🌟',
+  ];
+  const parent = btn.closest('#mindtouch-hero') || btn.closest('#mindtouch-card');
+  if(parent) parent.querySelectorAll('button').forEach(b=>{
+    b.style.background='rgba(255,255,255,0.08)';b.style.borderColor='#7F77DD';b.style.color='#E6E4FC';
+  });
+  btn.style.background='rgba(255,255,255,0.28)';btn.style.borderColor='#fff';btn.style.color='#fff';
+  const el=document.getElementById('gratitude-msg');
+  el.textContent=msgs[Math.floor(Math.random()*msgs.length)];
+  el.style.display='block';
+}
+
+// ══════════════════════════════
 // 성과 공유
 // ══════════════════════════════
 function shareProgress(){
@@ -1321,7 +1357,6 @@ function shareProgress(){
 // ══════════════════════════════
 // 초기화
 // ══════════════════════════════
-renderCheer();
 renderStreak();
 renderHomeNotices();
 renderTasks();
