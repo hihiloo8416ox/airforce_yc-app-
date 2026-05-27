@@ -650,30 +650,116 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
           <div style="font-size:11px;color:var(--green-dark);background:var(--green-light);border-radius:var(--radius);padding:.5rem .75rem;margin-top:6px;line-height:1.6;">✈️ 윤찬이 적용: 수학 문제가 안 풀릴 때 억지로 붙들지 말고 5분 산책. 문제는 머릿속에 품고 다녀. 돌아오면 보여.</div>
         </div>
       </div>
+    <!-- ════ 메모 ════ -->
+    <div class="scr" id="scr-cheer" style="padding:1rem;">
+
+      <!-- 작성자 선택 -->
+      <div id="memo-lock-screen" style="display:none;background:var(--bg);padding:1rem;">
+        <div style="background:var(--bg-sec);border-radius:var(--radius-lg);padding:1.5rem;text-align:center;margin-bottom:.875rem;">
+          <i class="ti ti-lock" style="font-size:32px;color:var(--blue);margin-bottom:.75rem;display:block" aria-hidden="true"></i>
+          <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px;">작성자 확인</div>
+          <div style="font-size:12px;color:var(--text-sec);margin-bottom:1rem;">누구로 글을 쓸까요?</div>
+          <div style="display:flex;flex-direction:column;gap:8px;" id="author-btn-list"></div>
+        </div>
+        <button class="btn" style="width:100%;font-size:12px;" onclick="closeMemoLock()">취소</button>
       </div>
-      <div id="qscr-manage" style="display:none;">
-        <div class="card">
-          <div class="card-hd"><div class="card-hd-l"><i class="ti ti-list" style="font-size:14px"></i>전체 격언</div></div>
-          <div id="q-manage-list"></div>
+
+      <!-- 메모 메인 -->
+      <div id="memo-main">
+        <!-- 헤더 -->
+        <div class="card" style="margin-bottom:.875rem;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:6px;"><i class="ti ti-notes" style="font-size:16px;color:var(--blue)" aria-hidden="true"></i>메모</div>
+            <select id="memo-filter" onchange="renderMemos()" style="padding:5px 8px;border-radius:var(--radius);border:0.5px solid var(--border-sec);background:var(--bg-sec);color:var(--text);font-size:11px;font-family:inherit;outline:none;">
+              <option value="all">전체 보기</option>
+              <option value="윤찬">윤찬</option>
+              <option value="엄마">엄마</option>
+              <option value="extra1" id="filter-extra1" style="display:none;">-</option>
+              <option value="extra2" id="filter-extra2" style="display:none;">-</option>
+            </select>
+          </div>
+          <button class="btn btn-blue" style="width:100%;font-size:13px;padding:10px;" onclick="openMemoLock('write')">
+            <i class="ti ti-pencil-plus" style="font-size:15px;vertical-align:-2px;margin-right:5px" aria-hidden="true"></i>+ 새 메모 쓰기
+          </button>
+        </div>
+
+        <!-- 메모 리스트 -->
+        <div id="memo-list"></div>
+
+        <!-- 메모 작성 폼 (잠금 해제 후 표시) -->
+        <div id="memo-write-form" style="display:none;background:var(--bg);position:fixed;bottom:80px;left:50%;transform:translateX(-50%);width:calc(100% - 2rem);max-width:400px;border:0.5px solid var(--border-sec);border-radius:var(--radius-lg);padding:1rem;box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:100;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+            <div style="font-size:12px;font-weight:600;color:var(--text);">새 메모 — <span id="write-author-label" style="color:var(--blue)"></span></div>
+            <button onclick="closeMemoWrite()" style="background:none;border:none;cursor:pointer;color:var(--text-sec);font-size:18px;">×</button>
+          </div>
+          <input type="text" id="memo-title-inp" class="fi" placeholder="제목 (선택)" style="margin-bottom:6px;"/>
+          <textarea id="memo-content-inp" class="fi" placeholder="메모 내용을 입력해주세요..." style="min-height:100px;margin-bottom:6px;line-height:1.6;"></textarea>
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
+            <select id="memo-cat-inp" class="fi" style="height:34px;flex:1;">
+              <option value="일반">일반</option>
+              <option value="공부">공부</option>
+              <option value="응원">응원</option>
+              <option value="중요">중요</option>
+              <option value="아이디어">아이디어</option>
+            </select>
+            <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-sec);flex-shrink:0;cursor:pointer;">
+              <input type="checkbox" id="memo-pin-inp"/> 고정
+            </label>
+          </div>
+          <button class="btn btn-blue" style="width:100%;font-size:12px;" onclick="saveMemo()">저장하기</button>
+        </div>
+
+        <!-- 메모 편집 폼 -->
+        <div id="memo-edit-form" style="display:none;background:var(--bg);position:fixed;bottom:80px;left:50%;transform:translateX(-50%);width:calc(100% - 2rem);max-width:400px;border:0.5px solid var(--border-sec);border-radius:var(--radius-lg);padding:1rem;box-shadow:0 4px 16px rgba(0,0,0,0.12);z-index:100;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+            <div style="font-size:12px;font-weight:600;color:var(--text);">메모 편집</div>
+            <button onclick="closeMemoEdit()" style="background:none;border:none;cursor:pointer;color:var(--text-sec);font-size:18px;">×</button>
+          </div>
+          <input type="text" id="edit-title-inp" class="fi" placeholder="제목 (선택)" style="margin-bottom:6px;"/>
+          <textarea id="edit-content-inp" class="fi" placeholder="메모 내용..." style="min-height:100px;margin-bottom:6px;line-height:1.6;"></textarea>
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">
+            <select id="edit-cat-inp" class="fi" style="height:34px;flex:1;">
+              <option value="일반">일반</option>
+              <option value="공부">공부</option>
+              <option value="응원">응원</option>
+              <option value="중요">중요</option>
+              <option value="아이디어">아이디어</option>
+            </select>
+            <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-sec);flex-shrink:0;cursor:pointer;">
+              <input type="checkbox" id="edit-pin-inp"/> 고정
+            </label>
+          </div>
+          <input type="hidden" id="edit-memo-id"/>
+          <button class="btn btn-blue" style="width:100%;font-size:12px;" onclick="updateMemo()">수정 완료</button>
         </div>
       </div>
-      <div id="qscr-add" style="display:none;">
-        <div class="card">
-          <div class="card-hd"><div class="card-hd-l"><i class="ti ti-pencil" style="font-size:14px"></i>직접 입력</div></div>
-          <div class="lbl">격언 / 문구 *</div>
-          <textarea class="fi" id="q-text" placeholder="격언이나 인상 깊은 문구를 입력하세요..."></textarea>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
-            <div><div class="lbl">출처</div><input type="text" class="fi" id="q-author" placeholder="예: 아인슈타인"/></div>
-            <div><div class="lbl">카테고리</div><select class="fi" id="q-cat" style="height:36px;"><option value="motivation">동기부여</option><option value="success">성공</option><option value="study">공부</option><option value="military">군인/리더십</option><option value="life">삶의 지혜</option><option value="book">책 속 문장</option></select></div>
+
+      <!-- 작성자 관리 -->
+      <div class="card" style="margin-top:.875rem;">
+        <div class="card-hd"><div class="card-hd-l"><i class="ti ti-users" style="font-size:14px"></i>작성자 관리</div></div>
+        <div style="font-size:11px;color:var(--text-sec);margin-bottom:.75rem;line-height:1.6;">기본 작성자(윤찬·엄마) 외 추가 인물 2명까지 지정할 수 있어요.</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;align-items:center;gap:8px;padding:.625rem .875rem;background:var(--blue-light);border-radius:var(--radius);">
+            <i class="ti ti-user" style="font-size:16px;color:var(--blue)" aria-hidden="true"></i>
+            <div style="flex:1;font-size:12px;font-weight:600;color:var(--blue-dark);">윤찬</div>
+            <span style="font-size:10px;color:var(--blue);background:var(--bg);padding:2px 7px;border-radius:8px;">기본</span>
           </div>
-          <div class="lbl" style="margin-top:8px;">엄마 메모</div>
-          <input type="text" class="fi" id="q-memo" placeholder="예: 포기하고 싶을 때 이 말 생각해"/>
-          <div style="display:flex;gap:8px;margin-top:10px;">
-            <button class="btn btn-green" style="flex:2;" onclick="submitQ('approved')">바로 승인</button>
-            <button class="btn" style="flex:1;" onclick="submitQ('pending')">대기 저장</button>
+          <div style="display:flex;align-items:center;gap:8px;padding:.625rem .875rem;background:#EEEDFE;border-radius:var(--radius);">
+            <i class="ti ti-user" style="font-size:16px;color:var(--purple)" aria-hidden="true"></i>
+            <div style="flex:1;font-size:12px;font-weight:600;color:var(--purple-dark);">엄마</div>
+            <span style="font-size:10px;color:var(--purple);background:var(--bg);padding:2px 7px;border-radius:8px;">기본</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <input type="text" id="extra1-inp" class="fi" placeholder="추가 인물 1 이름" style="flex:1;margin:0;" oninput="saveExtraAuthors()"/>
+            <div id="extra1-badge" style="font-size:10px;padding:2px 8px;border-radius:8px;background:var(--green-light);color:var(--green-dark);white-space:nowrap;display:none;">활성</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <input type="text" id="extra2-inp" class="fi" placeholder="추가 인물 2 이름" style="flex:1;margin:0;" oninput="saveExtraAuthors()"/>
+            <div id="extra2-badge" style="font-size:10px;padding:2px 8px;border-radius:8px;background:var(--green-light);color:var(--green-dark);white-space:nowrap;display:none;">활성</div>
           </div>
         </div>
       </div>
+
     </div>
 
     <!-- ════ 공사 입시 ════ -->
@@ -813,7 +899,7 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
     <button class="nav-item" onclick="goTab('timer')" id="nav-timer"><i class="ti ti-clock"></i>타이머</button>
     <button class="nav-item" onclick="goTab('tasks')" id="nav-tasks"><i class="ti ti-checklist"></i>할일</button>
     <button class="nav-item" onclick="goTab('adhd')" id="nav-adhd"><i class="ti ti-brain"></i>ADHD</button>
-    <button class="nav-item" onclick="goTab('cheer')" id="nav-cheer"><i class="ti ti-heart"></i>응원</button>
+    <button class="nav-item" onclick="goTab('cheer')" id="nav-cheer"><i class="ti ti-notes"></i>메모</button>
     <button class="nav-item" onclick="goTab('study')" id="nav-study"><i class="ti ti-book-2"></i>공부법</button>
     <button class="nav-item" onclick="goTab('kafa')" id="nav-kafa"><i class="ti ti-plane"></i>공사</button>
     <button class="nav-item" onclick="goTab('notice')" id="nav-notice" style="position:relative;"><i class="ti ti-bell"></i>공지<div class="badge" id="notice-badge" style="display:none;">0</div></button>
@@ -843,7 +929,7 @@ function goTab(id){
   document.getElementById('nav-'+id).classList.add('active');
   if(id==='home'){renderStreak();renderHomeNotices();}
   if(id==='study'){}
-  if(id==='cheer'){renderQPending();renderQManage();}
+  if(id==='cheer'){renderMemos();loadExtraAuthors();}
   if(id==='notice'){renderSchoolNotices();renderMomNotices();}
   if(id==='plan'){renderRanges();}
   if(id==='kafa'){buildKafaDday();renderKafaPrep();renderKafaEvents();}
@@ -1345,6 +1431,197 @@ function gratitudeCheck(btn){
   el.style.display='block';
 }
 
+
+// ══════════════════════════════
+// 메모 시스템
+// ══════════════════════════════
+const AUTHORS = {
+  윤찬: {color:'var(--blue)',bg:'var(--blue-light)',dark:'var(--blue-dark)'},
+  엄마: {color:'var(--purple)',bg:'#EEEDFE',dark:'var(--purple-dark)'},
+};
+const CAT_COLORS = {
+  일반:'var(--bg-sec)',공부:'var(--blue-light)',응원:'#EEEDFE',중요:'var(--red-light)',아이디어:'var(--amber-light)'
+};
+const CAT_TEXT = {
+  일반:'var(--text-sec)',공부:'var(--blue-dark)',응원:'var(--purple-dark)',중요:'var(--red)',아이디어:'var(--amber-dark)'
+};
+
+let memos = [];
+let currentWriteAuthor = '';
+let currentEditId = null;
+let memoLockMode = '';
+
+function loadMemos(){
+  try{ memos = JSON.parse(localStorage.getItem('yc_memos')||'[]'); }catch(e){ memos=[]; }
+}
+function saveMemos(){
+  try{ localStorage.setItem('yc_memos', JSON.stringify(memos)); }catch(e){}
+}
+function loadExtraAuthors(){
+  try{
+    const extras = JSON.parse(localStorage.getItem('yc_extra_authors')||'["",""]');
+    document.getElementById('extra1-inp').value = extras[0]||'';
+    document.getElementById('extra2-inp').value = extras[1]||'';
+    updateExtraBadges();
+    updateFilterOptions();
+  }catch(e){}
+}
+function saveExtraAuthors(){
+  const e1 = document.getElementById('extra1-inp').value.trim();
+  const e2 = document.getElementById('extra2-inp').value.trim();
+  try{ localStorage.setItem('yc_extra_authors', JSON.stringify([e1,e2])); }catch(e){}
+  updateExtraBadges();
+  updateFilterOptions();
+}
+function updateExtraBadges(){
+  const e1 = document.getElementById('extra1-inp').value.trim();
+  const e2 = document.getElementById('extra2-inp').value.trim();
+  document.getElementById('extra1-badge').style.display = e1 ? 'block' : 'none';
+  document.getElementById('extra2-badge').style.display = e2 ? 'block' : 'none';
+}
+function updateFilterOptions(){
+  const e1 = document.getElementById('extra1-inp').value.trim();
+  const e2 = document.getElementById('extra2-inp').value.trim();
+  const f1 = document.getElementById('filter-extra1');
+  const f2 = document.getElementById('filter-extra2');
+  if(f1){ f1.textContent = e1||'-'; f1.style.display = e1 ? '' : 'none'; f1.value = e1||'extra1'; }
+  if(f2){ f2.textContent = e2||'-'; f2.style.display = e2 ? '' : 'none'; f2.value = e2||'extra2'; }
+}
+function getAuthors(){
+  const base = ['윤찬','엄마'];
+  try{
+    const extras = JSON.parse(localStorage.getItem('yc_extra_authors')||'["",""]');
+    extras.forEach(e=>{ if(e.trim()) base.push(e.trim()); });
+  }catch(ex){}
+  return base;
+}
+
+function openMemoLock(mode){
+  memoLockMode = mode;
+  const screen = document.getElementById('memo-lock-screen');
+  const list = document.getElementById('author-btn-list');
+  const authors = getAuthors();
+  const colors = ['var(--blue)','var(--purple)','var(--green)','var(--amber)'];
+  const bgs = ['var(--blue-light)','#EEEDFE','var(--green-light)','var(--amber-light)'];
+  list.innerHTML = authors.map((a,i)=>`
+    <button onclick="selectAuthor('${a}')" style="padding:10px;border-radius:var(--radius);border:0.5px solid ${colors[i]||'var(--border-sec)'};background:${bgs[i]||'var(--bg-sec)'};color:${colors[i]||'var(--text)'};font-size:13px;font-weight:600;font-family:inherit;cursor:pointer;width:100%;">
+      ${a}로 ${mode==='write'?'글 쓰기':'편집하기'}
+    </button>`).join('');
+  screen.style.display='block';
+}
+function closeMemoLock(){
+  document.getElementById('memo-lock-screen').style.display='none';
+}
+function selectAuthor(author){
+  currentWriteAuthor = author;
+  closeMemoLock();
+  if(memoLockMode==='write') openMemoWrite();
+  else if(memoLockMode==='edit') openMemoEditForm();
+}
+function openMemoWrite(){
+  document.getElementById('write-author-label').textContent = currentWriteAuthor;
+  document.getElementById('memo-title-inp').value='';
+  document.getElementById('memo-content-inp').value='';
+  document.getElementById('memo-cat-inp').value='일반';
+  document.getElementById('memo-pin-inp').checked=false;
+  document.getElementById('memo-write-form').style.display='block';
+}
+function closeMemoWrite(){
+  document.getElementById('memo-write-form').style.display='none';
+}
+function saveMemo(){
+  const title = document.getElementById('memo-title-inp').value.trim();
+  const content = document.getElementById('memo-content-inp').value.trim();
+  const cat = document.getElementById('memo-cat-inp').value;
+  const pin = document.getElementById('memo-pin-inp').checked;
+  if(!content){ alert('내용을 입력해주세요!'); return; }
+  memos.unshift({
+    id: Date.now(), author: currentWriteAuthor,
+    title, content, cat, pin,
+    date: new Date().toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'})
+  });
+  saveMemos(); closeMemoWrite(); renderMemos();
+}
+function editMemo(id){
+  currentEditId = id;
+  openMemoLock('edit');
+}
+function openMemoEditForm(){
+  const memo = memos.find(m=>m.id===currentEditId);
+  if(!memo) return;
+  document.getElementById('edit-title-inp').value = memo.title||'';
+  document.getElementById('edit-content-inp').value = memo.content||'';
+  document.getElementById('edit-cat-inp').value = memo.cat||'일반';
+  document.getElementById('edit-pin-inp').checked = memo.pin||false;
+  document.getElementById('edit-memo-id').value = memo.id;
+  document.getElementById('memo-edit-form').style.display='block';
+}
+function closeMemoEdit(){
+  document.getElementById('memo-edit-form').style.display='none';
+}
+function updateMemo(){
+  const id = parseInt(document.getElementById('edit-memo-id').value);
+  const title = document.getElementById('edit-title-inp').value.trim();
+  const content = document.getElementById('edit-content-inp').value.trim();
+  const cat = document.getElementById('edit-cat-inp').value;
+  const pin = document.getElementById('edit-pin-inp').checked;
+  if(!content){ alert('내용을 입력해주세요!'); return; }
+  memos = memos.map(m=>m.id===id?{...m,title,content,cat,pin}:m);
+  saveMemos(); closeMemoEdit(); renderMemos();
+}
+function deleteMemo(id){
+  if(!confirm('이 메모를 삭제할까요?')) return;
+  memos = memos.filter(m=>m.id!==id);
+  saveMemos(); renderMemos();
+}
+function togglePin(id){
+  memos = memos.map(m=>m.id===id?{...m,pin:!m.pin}:m);
+  saveMemos(); renderMemos();
+}
+function renderMemos(){
+  loadMemos();
+  const el = document.getElementById('memo-list');
+  if(!el) return;
+  const filter = document.getElementById('memo-filter')?.value||'all';
+  let list = filter==='all' ? memos : memos.filter(m=>m.author===filter);
+  // 고정 먼저
+  const pinned = list.filter(m=>m.pin);
+  const rest = list.filter(m=>!m.pin);
+  list = [...pinned,...rest];
+  if(!list.length){
+    el.innerHTML='<div style="text-align:center;padding:2rem;font-size:13px;color:var(--text-hint);">아직 메모가 없어요.<br>+ 새 메모 버튼으로 작성해보세요!</div>';
+    return;
+  }
+  const colors=['var(--blue)','var(--purple)','var(--green)','var(--amber)'];
+  const bgs=['var(--blue-light)','#EEEDFE','var(--green-light)','var(--amber-light)'];
+  const authors = getAuthors();
+  el.innerHTML = list.map(m=>{
+    const ai = authors.indexOf(m.author);
+    const ac = colors[ai]||'var(--text-sec)';
+    const ab = bgs[ai]||'var(--bg-sec)';
+    const catBg = CAT_COLORS[m.cat]||'var(--bg-sec)';
+    const catTxt = CAT_TEXT[m.cat]||'var(--text-sec)';
+    return `<div style="background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:.875rem;margin-bottom:8px;${m.pin?'border-color:'+ac+';':'' }">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px;">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <span style="font-size:10px;padding:2px 8px;border-radius:8px;background:${ab};color:${ac};font-weight:600;">${m.author}</span>
+          <span style="font-size:10px;padding:2px 7px;border-radius:8px;background:${catBg};color:${catTxt};">${m.cat}</span>
+          ${m.pin?'<span style="font-size:10px;color:'+ac+';">📌 고정</span>':''}
+        </div>
+        <div style="font-size:10px;color:var(--text-hint);">${m.date||''}</div>
+      </div>
+      ${m.title?`<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;">${m.title}</div>`:''}
+      <div style="font-size:12px;color:var(--text-sec);line-height:1.7;white-space:pre-wrap;">${m.content}</div>
+      <div style="display:flex;gap:5px;margin-top:.625rem;">
+        <button onclick="editMemo(${m.id})" style="padding:4px 10px;border-radius:var(--radius);border:0.5px solid var(--border-sec);background:transparent;font-size:11px;cursor:pointer;font-family:inherit;color:var(--text-sec);">편집</button>
+        <button onclick="togglePin(${m.id})" style="padding:4px 10px;border-radius:var(--radius);border:0.5px solid var(--border-sec);background:transparent;font-size:11px;cursor:pointer;font-family:inherit;color:var(--text-sec);">${m.pin?'고정 해제':'고정'}</button>
+        <button onclick="deleteMemo(${m.id})" style="padding:4px 10px;border-radius:var(--radius);border:0.5px solid var(--red-light);background:transparent;font-size:11px;cursor:pointer;font-family:inherit;color:var(--red);">삭제</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+loadMemos();
+
 // ══════════════════════════════
 // 성과 공유
 // ══════════════════════════════
@@ -1364,6 +1641,7 @@ updateDisp();
 updateFW('idle');
 document.getElementById('h-dday').textContent='D-'+daysUntil('2026-06-04');
 initMood();
+loadExtraAuthors();
 </script>
 </body>
 </html>
