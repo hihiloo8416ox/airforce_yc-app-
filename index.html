@@ -292,6 +292,34 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
     import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc, query, orderBy }
       from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
+
+    /*
+    ══════════════════════════════════════════
+    Firestore DB 구조 (윤찬이 파일럿 플래너)
+    ══════════════════════════════════════════
+    users/
+      {uid}/
+        notices/          ← 공지 브리핑
+          {docId}: {
+            title, desc, cat, type('school'|'mom'),
+            date, createdAt
+          }
+        today_schedule/   ← 오늘의 일정
+          data: {
+            date, items: [{id,time,subj,detail,cat,done}],
+            updatedAt
+          }
+        memos/            ← 자유 메모
+          {docId}: {
+            author, title, content, cat, pin,
+            date, createdAt
+          }
+        quotes/           ← 격언 모음
+          {docId}: {
+            text, author, cat, createdAt
+          }
+    ══════════════════════════════════════════
+    */
     // ── Firebase 초기화 ──
     const firebaseConfig = {
       apiKey: "AIzaSyC9wzMA7IaNQ6Ri88FfKOIPQWUFPeNvcsc",
@@ -347,7 +375,7 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
     // ── Firestore 전체 데이터 로드 ──
     window.loadAllFromFirestore = async function(uid) {
       try {
-        // 공지 로드
+        // ── 공지 로드 ──
         const noticeSnap = await getDocs(collection(db, 'users', uid, 'notices'));
         const schoolArr = [], momArr = [];
         noticeSnap.forEach(d => {
@@ -355,45 +383,57 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
           if(data.type === 'mom') momArr.push(data);
           else schoolArr.push(data);
         });
-        schoolArr.sort((a,b) => b.createdAt - a.createdAt);
-        momArr.sort((a,b) => b.createdAt - a.createdAt);
+        schoolArr.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+        momArr.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
         schoolNotices = schoolArr;
         momNotices = momArr;
         localStorage.setItem('yc_school', JSON.stringify(schoolArr));
         localStorage.setItem('yc_mom', JSON.stringify(momArr));
 
-        // 오늘 일정 로드
+        // ── 오늘 일정 로드 ──
         try {
           const schDoc = await getDoc(doc(db, 'users', uid, 'today_schedule', 'data'));
           if(schDoc.exists()) {
             const data = schDoc.data();
             if(data.date === new Date().toDateString()) {
               localStorage.setItem('yc_today_sch', JSON.stringify(data));
+            } else {
+              localStorage.removeItem('yc_today_sch');
             }
           }
-        } catch(e) {}
+        } catch(e) { console.log('오늘 일정 로드 생략:', e.message); }
 
-        // 메모 로드
-        const memoSnap = await getDocs(collection(db, 'users', uid, 'memos'));
-        const memoArr = [];
-        memoSnap.forEach(d => memoArr.push({id: d.id, ...d.data()}));
-        memoArr.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
-        localStorage.setItem('yc_memos', JSON.stringify(memoArr));
+        // ── 메모 로드 ──
+        try {
+          const memoSnap = await getDocs(collection(db, 'users', uid, 'memos'));
+          const memoArr = [];
+          memoSnap.forEach(d => memoArr.push({id: d.id, ...d.data()}));
+          memoArr.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+          localStorage.setItem('yc_memos', JSON.stringify(memoArr));
+        } catch(e) { console.log('메모 로드 생략:', e.message); }
 
-        // 격언 로드
-        const quoteSnap = await getDocs(collection(db, 'users', uid, 'quotes'));
-        const quoteArr = [];
-        quoteSnap.forEach(d => quoteArr.push({id: d.id, ...d.data()}));
-        localStorage.setItem('yc_quotes_new', JSON.stringify(quoteArr));
+        // ── 격언 로드 ──
+        try {
+          const quoteSnap = await getDocs(collection(db, 'users', uid, 'quotes'));
+          const quoteArr = [];
+          quoteSnap.forEach(d => quoteArr.push({id: d.id, ...d.data()}));
+          quoteArr.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+          localStorage.setItem('yc_quotes_new', JSON.stringify(quoteArr));
+        } catch(e) { console.log('격언 로드 생략:', e.message); }
 
-        // 화면 렌더
+        // ── 화면 초기화 ──
+        if(typeof window.initAppAfterLogin === 'function') window.initAppAfterLogin();
         if(typeof renderHomeNotices === 'function') renderHomeNotices();
         if(typeof renderTodaySchList === 'function') renderTodaySchList();
         if(typeof renderMemos === 'function') renderMemos();
-        if(typeof window.initAppAfterLogin === 'function') window.initAppAfterLogin();
-        console.log('✅ Firestore 데이터 로드 완료');
+        console.log('✅ Firestore 전체 로드 완료');
+
       } catch(e) {
-        console.error('데이터 로드 오류:', e);
+        console.error('Firestore 로드 오류:', e);
+        // 오류 시 localStorage 데이터로 폴백
+        if(typeof window.initAppAfterLogin === 'function') window.initAppAfterLogin();
+        if(typeof renderHomeNotices === 'function') renderHomeNotices();
+        if(typeof renderTodaySchList === 'function') renderTodaySchList();
       }
     };
 
@@ -1599,6 +1639,7 @@ function deleteHomeNotice(id, type){
     schoolNotices=schoolNotices.filter(function(n){return n.id!==parseInt(id)&&String(n.id)!==String(id);});
     localStorage.setItem('yc_school',JSON.stringify(schoolNotices));
   }
+  if(window.deleteNoticeFromFirestore) window.deleteNoticeFromFirestore(id);
   renderHomeNotices();
 }
 
@@ -1665,11 +1706,15 @@ function saveTodayInline(){
 function toggleTodayItem(id){
   var items=getTodaySch();
   items=items.map(function(i){return i.id===id?Object.assign({},i,{done:!i.done}):i;});
-  saveTodaySch(items);renderTodaySchList();
+  saveTodaySch(items);
+  if(window.saveTodaySchToFirestore) window.saveTodaySchToFirestore(items);
+  renderTodaySchList();
 }
 function deleteTodayItem(id){
   var items=getTodaySch().filter(function(i){return i.id!==id;});
-  saveTodaySch(items);renderTodaySchList();
+  saveTodaySch(items);
+  if(window.saveTodaySchToFirestore) window.saveTodaySchToFirestore(items);
+  renderTodaySchList();
 }
 
 // ══════════════════════════════
@@ -2244,6 +2289,7 @@ function deleteMemoItem(id){
   try{ list = JSON.parse(localStorage.getItem('yc_memos')||'[]'); }catch(e){}
   list = list.filter(function(m){ return m.id !== id; });
   localStorage.setItem('yc_memos', JSON.stringify(list));
+  if(window.deleteMemoFromFirestore) window.deleteMemoFromFirestore(id);
   renderMemos();
 }
 
@@ -2302,6 +2348,7 @@ function deleteQuoteItem(id){
   try{ list = JSON.parse(localStorage.getItem('yc_quotes_new')||'[]'); }catch(e){}
   list = list.filter(function(q){ return q.id !== id; });
   localStorage.setItem('yc_quotes_new', JSON.stringify(list));
+  if(window.deleteQuoteFromFirestore) window.deleteQuoteFromFirestore(id);
   renderQuotes();
 }
 
