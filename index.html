@@ -275,12 +275,226 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
 .ttab.active{color:var(--blue);border-bottom-color:var(--blue);font-weight:600;background:var(--blue-light);}
 .ttab:nth-child(1),.ttab:nth-child(2),.ttab:nth-child(3){border-bottom:0.5px solid var(--border);}
 
+
+/* ── 집중 전체화면 ── */
+#focus-fullscreen.open{display:flex !important;pointer-events:auto;}
+.focus-star{position:absolute;width:2px;height:2px;border-radius:50%;background:#fff;opacity:.4;animation:focusTwinkle 3s infinite ease-in-out;}
+.focus-star-lg{width:3px;height:3px;opacity:.6;}
+@keyframes focusTwinkle{0%,100%{opacity:.2;transform:scale(1);}50%{opacity:.8;transform:scale(1.5);}}
+
 </style>
+
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut }
+      from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+    import { getFirestore, doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc, query, orderBy }
+      from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+    // ── Firebase 초기화 ──
+    const firebaseConfig = {
+      apiKey: "AIzaSyC9wzMA7IaNQ6Ri88FfKOIPQWUFPeNvcsc",
+      authDomain: "yunchan-pilot-planner.firebaseapp.com",
+      projectId: "yunchan-pilot-planner",
+      storageBucket: "yunchan-pilot-planner.firebasestorage.app",
+      messagingSenderId: "929754265300",
+      appId: "1:929754265300:web:e4886e9a152d43b6416d41"
+    };
+    const fbApp = initializeApp(firebaseConfig);
+    const auth = getAuth(fbApp);
+    const db = getFirestore(fbApp);
+
+    // ── Google 로그인 ──
+    window.fbLogin = async function() {
+      try {
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
+      } catch(e) {
+        console.error('로그인 오류:', e);
+        alert('로그인 중 오류가 발생했어요. 다시 시도해주세요.');
+      }
+    };
+
+    // ── 로그아웃 ──
+    window.fbLogout = async function() {
+      if(confirm('로그아웃 하시겠어요?')) {
+        await signOut(auth);
+      }
+    };
+
+    // ── 로그인 상태 감지 ──
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // 로그인됨
+        window._fbUid = user.uid;
+        window._fbUser = user;
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app-shell').style.display = 'flex';
+        // 사용자 이름 표시
+        const nameEl = document.getElementById('user-display-name');
+        if(nameEl) nameEl.textContent = user.displayName || user.email;
+        // Firestore에서 데이터 로드
+        await window.loadAllFromFirestore(user.uid);
+      } else {
+        // 미로그인
+        window._fbUid = null;
+        document.getElementById('login-screen').style.display = 'flex';
+        document.getElementById('app-shell').style.display = 'none';
+      }
+    });
+
+    // ── Firestore 전체 데이터 로드 ──
+    window.loadAllFromFirestore = async function(uid) {
+      try {
+        // 공지 로드
+        const noticeSnap = await getDocs(collection(db, 'users', uid, 'notices'));
+        const schoolArr = [], momArr = [];
+        noticeSnap.forEach(d => {
+          const data = {id: d.id, ...d.data()};
+          if(data.type === 'mom') momArr.push(data);
+          else schoolArr.push(data);
+        });
+        schoolArr.sort((a,b) => b.createdAt - a.createdAt);
+        momArr.sort((a,b) => b.createdAt - a.createdAt);
+        schoolNotices = schoolArr;
+        momNotices = momArr;
+        localStorage.setItem('yc_school', JSON.stringify(schoolArr));
+        localStorage.setItem('yc_mom', JSON.stringify(momArr));
+
+        // 오늘 일정 로드
+        try {
+          const schDoc = await getDoc(doc(db, 'users', uid, 'today_schedule', 'data'));
+          if(schDoc.exists()) {
+            const data = schDoc.data();
+            if(data.date === new Date().toDateString()) {
+              localStorage.setItem('yc_today_sch', JSON.stringify(data));
+            }
+          }
+        } catch(e) {}
+
+        // 메모 로드
+        const memoSnap = await getDocs(collection(db, 'users', uid, 'memos'));
+        const memoArr = [];
+        memoSnap.forEach(d => memoArr.push({id: d.id, ...d.data()}));
+        memoArr.sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+        localStorage.setItem('yc_memos', JSON.stringify(memoArr));
+
+        // 격언 로드
+        const quoteSnap = await getDocs(collection(db, 'users', uid, 'quotes'));
+        const quoteArr = [];
+        quoteSnap.forEach(d => quoteArr.push({id: d.id, ...d.data()}));
+        localStorage.setItem('yc_quotes_new', JSON.stringify(quoteArr));
+
+        // 화면 렌더
+        if(typeof renderHomeNotices === 'function') renderHomeNotices();
+        if(typeof renderTodaySchList === 'function') renderTodaySchList();
+        if(typeof renderMemos === 'function') renderMemos();
+        console.log('✅ Firestore 데이터 로드 완료');
+      } catch(e) {
+        console.error('데이터 로드 오류:', e);
+      }
+    };
+
+    // ── Firestore 저장 함수들 ──
+
+    // 공지 저장
+    window.saveNoticeToFirestore = async function(notice, type) {
+      if(!window._fbUid) return;
+      try {
+        await addDoc(collection(db, 'users', window._fbUid, 'notices'), {
+          ...notice, type, createdAt: Date.now()
+        });
+      } catch(e) { console.error('공지 저장 오류:', e); }
+    };
+
+    // 공지 삭제
+    window.deleteNoticeFromFirestore = async function(id) {
+      if(!window._fbUid) return;
+      try {
+        await deleteDoc(doc(db, 'users', window._fbUid, 'notices', String(id)));
+      } catch(e) { console.error('공지 삭제 오류:', e); }
+    };
+
+    // 오늘 일정 저장
+    window.saveTodaySchToFirestore = async function(items) {
+      if(!window._fbUid) return;
+      try {
+        await setDoc(doc(db, 'users', window._fbUid, 'today_schedule', 'data'), {
+          date: new Date().toDateString(), items, updatedAt: Date.now()
+        });
+      } catch(e) { console.error('일정 저장 오류:', e); }
+    };
+
+    // 메모 저장
+    window.saveMemoToFirestore = async function(memo) {
+      if(!window._fbUid) return;
+      try {
+        const docRef = await addDoc(collection(db, 'users', window._fbUid, 'memos'), {
+          ...memo, createdAt: Date.now()
+        });
+        return docRef.id;
+      } catch(e) { console.error('메모 저장 오류:', e); }
+    };
+
+    // 메모 삭제
+    window.deleteMemoFromFirestore = async function(id) {
+      if(!window._fbUid) return;
+      try {
+        await deleteDoc(doc(db, 'users', window._fbUid, 'memos', String(id)));
+      } catch(e) { console.error('메모 삭제 오류:', e); }
+    };
+
+    // 격언 저장
+    window.saveQuoteToFirestore = async function(quote) {
+      if(!window._fbUid) return;
+      try {
+        const docRef = await addDoc(collection(db, 'users', window._fbUid, 'quotes'), {
+          ...quote, createdAt: Date.now()
+        });
+        return docRef.id;
+      } catch(e) { console.error('격언 저장 오류:', e); }
+    };
+
+    // 격언 삭제
+    window.deleteQuoteFromFirestore = async function(id) {
+      if(!window._fbUid) return;
+      try {
+        await deleteDoc(doc(db, 'users', window._fbUid, 'quotes', String(id)));
+      } catch(e) { console.error('격언 삭제 오류:', e); }
+    };
+
+  </script>
+
 </head>
 <body>
-<div class="app-shell">
-  <div class="top-bar">
-    <div class="top-bar-title">✈️ 윤찬이 파일럿 플래너</div>
+
+  <!-- 로그인 화면 -->
+  <div id="login-screen" style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(160deg,#0A1628 0%,#1A3A6E 50%,#0D2347 100%);padding:2rem;text-align:center;">
+    <!-- 별 배경 -->
+    <div style="position:absolute;inset:0;overflow:hidden;pointer-events:none;">
+      <div style="position:absolute;top:10%;left:15%;width:3px;height:3px;border-radius:50%;background:#fff;opacity:.6;animation:focusTwinkle 2s infinite;"></div>
+      <div style="position:absolute;top:20%;left:75%;width:2px;height:2px;border-radius:50%;background:#fff;opacity:.4;animation:focusTwinkle 3s infinite .5s;"></div>
+      <div style="position:absolute;top:60%;left:25%;width:2px;height:2px;border-radius:50%;background:#fff;opacity:.5;animation:focusTwinkle 2.5s infinite 1s;"></div>
+      <div style="position:absolute;top:75%;left:80%;width:3px;height:3px;border-radius:50%;background:#fff;opacity:.4;animation:focusTwinkle 3s infinite .3s;"></div>
+      <div style="position:absolute;top:40%;left:88%;width:2px;height:2px;border-radius:50%;background:#fff;opacity:.6;animation:focusTwinkle 2s infinite .8s;"></div>
+    </div>
+    <div style="position:relative;z-index:1;">
+      <div style="font-size:56px;margin-bottom:1rem;">✈️</div>
+      <div style="font-size:24px;font-weight:700;color:#fff;margin-bottom:.5rem;font-family:'Malgun Gothic','맑은 고딕',sans-serif;">윤찬이 파일럿 플래너</div>
+      <div style="font-size:14px;color:#4A90D9;margin-bottom:.5rem;">공군사관학교 2029</div>
+      <div style="font-size:12px;color:#2A5A9A;margin-bottom:2.5rem;line-height:1.7;">각오하는 순간 뇌는 바뀐다.<br>해보자! 됩니다! 🔥</div>
+      <button onclick="fbLogin()" style="display:flex;align-items:center;gap:10px;padding:14px 28px;border-radius:12px;border:none;background:#fff;color:#333;font-size:15px;font-weight:600;cursor:pointer;font-family:inherit;margin:0 auto;touch-action:manipulation;box-shadow:0 4px 16px rgba(0,0,0,0.3);">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="22" height="22"/>
+        Google로 로그인
+      </button>
+      <div style="margin-top:1.5rem;font-size:11px;color:#1E3A6E;">엄마·아빠도 같은 계정으로 데이터 공유 가능</div>
+    </div>
+  </div>
+
+  <div class="app-shell" id="app-shell" style="display:none;">
+  <div class="top-bar" style="display:flex;align-items:center;justify-content:space-between;">
+    <div class="top-bar-title">✈️ 윤찬이 파일럿 플래너  <div style="display:flex;align-items:center;gap:8px;"><span id="user-display-name" style="font-size:10px;color:var(--text-sec);max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span><button onclick="fbLogout()" style="font-size:10px;padding:3px 8px;border-radius:6px;border:0.5px solid var(--border);background:transparent;color:var(--text-hint);cursor:pointer;font-family:inherit;">로그아웃</button></div></div>
     <div class="top-bar-date" id="top-date"></div>
   </div>
 
@@ -676,39 +890,82 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
       </div>
     </div>
 
-    <!-- ════ 응원하는 힘 ════ -->
+    <!-- ════ 메모 ════ -->
     <div class="scr" id="scr-cheer">
+
+      <!-- 서브탭 버튼 -->
       <div class="subtab-row">
-        <button class="stab on" onclick="goQTab('manage')" id="qtab-manage">전체 관리</button>
-        <button class="stab" onclick="goQTab('add')" id="qtab-add">직접 입력</button>
+        <button class="stab on" id="mtab-memo" onclick="switchMemoTab('memo')">📝 자유메모</button>
+        <button class="stab" id="mtab-quote" onclick="switchMemoTab('quote')">✨ 격언모음</button>
       </div>
 
-      <div id="qscr-manage" style="display:none;">
+      <!-- 자유메모 패널 -->
+      <div id="mpanel-memo">
+        <div style="display:flex;gap:6px;margin-bottom:.875rem;">
+          <button class="memo-author-btn on" data-author="윤찬" onclick="selectMemoAuthor(this)">✈️ 윤찬</button>
+          <button class="memo-author-btn" data-author="엄마" onclick="selectMemoAuthor(this)">💜 엄마</button>
+          <button class="memo-author-btn" data-author="아빠" onclick="selectMemoAuthor(this)">💪 아빠</button>
+        </div>
+        <div class="card" style="margin-bottom:.875rem;">
+          <div class="card-hd"><div class="card-hd-l"><i class="ti ti-pencil" style="font-size:14px"></i>새 메모 작성</div></div>
+          <input type="text" id="memo-title-inp" placeholder="제목 (선택)" style="width:100%;padding:8px 10px;border-radius:8px;border:0.5px solid var(--border-sec);background:var(--bg-sec);color:var(--text);font-size:13px;font-family:inherit;outline:none;margin-bottom:7px;box-sizing:border-box;"/>
+          <textarea id="memo-content-inp" placeholder="메모 내용을 자유롭게 써봐..." style="width:100%;padding:8px 10px;border-radius:8px;border:0.5px solid var(--border-sec);background:var(--bg-sec);color:var(--text);font-size:13px;font-family:inherit;outline:none;resize:none;height:80px;line-height:1.6;margin-bottom:7px;box-sizing:border-box;"></textarea>
+          <div style="display:flex;gap:6px;margin-bottom:7px;">
+            <select id="memo-cat-inp" style="flex:1;padding:7px 8px;border-radius:8px;border:0.5px solid var(--border-sec);background:var(--bg-sec);color:var(--text);font-size:12px;font-family:inherit;outline:none;">
+              <option value="일반">일반</option>
+              <option value="공부">공부</option>
+              <option value="응원">응원</option>
+              <option value="중요">⭐ 중요</option>
+              <option value="아이디어">💡 아이디어</option>
+            </select>
+            <label style="display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text-sec);cursor:pointer;padding:0 6px;">
+              <input type="checkbox" id="memo-pin-inp" style="width:15px;height:15px;"/>📌 고정
+            </label>
+          </div>
+          <button onclick="saveMemo()" class="btn btn-blue" style="width:100%;padding:10px;font-size:13px;">저장하기</button>
+        </div>
         <div class="card">
-          <div class="card-hd"><div class="card-hd-l"><i class="ti ti-list" style="font-size:14px"></i>전체 격언</div></div>
-          <div id="q-manage-list"></div>
+          <div class="card-hd">
+            <div class="card-hd-l"><i class="ti ti-notes" style="font-size:14px"></i>메모 목록</div>
+            <div style="display:flex;gap:5px;">
+              <button class="memo-filter-btn on" data-filter="전체" onclick="filterMemos(this)">전체</button>
+              <button class="memo-filter-btn" data-filter="윤찬" onclick="filterMemos(this)">윤찬</button>
+              <button class="memo-filter-btn" data-filter="엄마" onclick="filterMemos(this)">엄마</button>
+              <button class="memo-filter-btn" data-filter="아빠" onclick="filterMemos(this)">아빠</button>
+            </div>
+          </div>
+          <div id="memo-list"><div style="text-align:center;padding:1rem;font-size:12px;color:var(--text-hint);">아직 메모가 없어요!</div></div>
         </div>
       </div>
-      <div id="qscr-add" style="display:none;">
+
+      <!-- 격언모음 패널 -->
+      <div id="mpanel-quote" style="display:none;">
+        <div class="card" style="margin-bottom:.875rem;">
+          <div class="card-hd"><div class="card-hd-l"><i class="ti ti-quote" style="font-size:14px"></i>격언 추가</div></div>
+          <textarea id="q-text-inp" placeholder="격언 / 문구를 입력해봐..." style="width:100%;padding:8px 10px;border-radius:8px;border:0.5px solid var(--border-sec);background:var(--bg-sec);color:var(--text);font-size:13px;font-family:inherit;outline:none;resize:none;height:70px;line-height:1.6;margin-bottom:7px;box-sizing:border-box;"></textarea>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:7px;">
+            <input type="text" id="q-author-inp" placeholder="출처 (예: 아리스토텔레스)" style="padding:7px 9px;border-radius:8px;border:0.5px solid var(--border-sec);background:var(--bg-sec);color:var(--text);font-size:12px;font-family:inherit;outline:none;box-sizing:border-box;"/>
+            <select id="q-cat-inp" style="padding:7px 8px;border-radius:8px;border:0.5px solid var(--border-sec);background:var(--bg-sec);color:var(--text);font-size:12px;font-family:inherit;outline:none;">
+              <option value="동기부여">동기부여</option>
+              <option value="성공">성공</option>
+              <option value="공부">공부</option>
+              <option value="군인/리더십">군인/리더십</option>
+              <option value="삶의 지혜">삶의 지혜</option>
+              <option value="엄마 메모">엄마 메모</option>
+            </select>
+          </div>
+          <button onclick="saveQuote()" class="btn btn-blue" style="width:100%;padding:10px;font-size:13px;">격언 저장</button>
+        </div>
         <div class="card">
-          <div class="card-hd"><div class="card-hd-l"><i class="ti ti-pencil" style="font-size:14px"></i>직접 입력</div></div>
-          <div class="lbl">격언 / 문구 *</div>
-          <textarea class="fi" id="q-text" placeholder="격언이나 인상 깊은 문구를 입력하세요..."></textarea>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px;">
-            <div><div class="lbl">출처</div><input type="text" class="fi" id="q-author" placeholder="예: 아인슈타인"/></div>
-            <div><div class="lbl">카테고리</div><select class="fi" id="q-cat" style="height:36px;"><option value="motivation">동기부여</option><option value="success">성공</option><option value="study">공부</option><option value="military">군인/리더십</option><option value="life">삶의 지혜</option><option value="book">책 속 문장</option></select></div>
-          </div>
-          <div class="lbl" style="margin-top:8px;">엄마 메모</div>
-          <input type="text" class="fi" id="q-memo" placeholder="예: 포기하고 싶을 때 이 말 생각해"/>
-          <div style="display:flex;gap:8px;margin-top:10px;">
-            <button class="btn btn-green" style="flex:2;" onclick="submitQ('approved')">바로 승인</button>
-            <button class="btn" style="flex:1;" onclick="submitQ('pending')">대기 저장</button>
-          </div>
+          <div class="card-hd"><div class="card-hd-l"><i class="ti ti-stars" style="font-size:14px"></i>격언 모음</div></div>
+
+          <div id="q-manage-list"><div style="text-align:center;padding:1rem;font-size:12px;color:var(--text-hint);">격언을 추가해봐!</div></div>
         </div>
       </div>
+
     </div>
 
-    <!-- ════ 공사 입시 ════ -->
+        <!-- ════ 공사 입시 ════ -->
     <div class="scr" id="scr-kafa">
       <div style="background:var(--blue-navy);border-radius:var(--radius-lg);padding:1.25rem;margin-bottom:.875rem;display:flex;align-items:center;gap:.875rem;">
         <div style="width:48px;height:48px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="ti ti-plane" style="font-size:24px;color:#fff"></i></div>
@@ -869,7 +1126,7 @@ function goTab(id){
   document.getElementById('scr-'+id).classList.add('on');
   document.getElementById('nav-'+id).classList.add('active');
   if(id==='home'){renderCheer();renderStreak();renderHomeNotices();}
-  if(id==='cheer'){renderQManage();}
+  if(id==='cheer'){renderMemos();}
   if(id==='notice'){renderSchoolNotices();renderMomNotices();}
   if(id==='plan'){renderRanges();}
   if(id==='kafa'){buildKafaDday();renderKafaPrep();renderKafaEvents();}
@@ -980,8 +1237,19 @@ function setMode(btn,label,mins,isRest){
   updateDisp();updateRing();updateFW('idle');
 }
 function toggleT(){
-  if(tRunning){clearInterval(tInterval);tRunning=false;document.getElementById('tbtn').textContent='계속';updateFW('idle');}
-  else{tRunning=true;pledged=false;document.getElementById('tbtn').textContent='일시정지';updateFW('running');tInterval=setInterval(tick,1000);}
+  if(tRunning){
+    clearInterval(tInterval);tRunning=false;
+    document.getElementById('tbtn').textContent='계속';
+    updateFW('idle');
+    hideFocusFullscreen();
+  } else {
+    tRunning=true;pledged=false;
+    document.getElementById('tbtn').textContent='일시정지';
+    updateFW('running');
+    tInterval=setInterval(tick,1000);
+    // 25분 집중 모드일 때만 전체화면
+    if(!tIsRest) showFocusFullscreen();
+  }
 }
 function tick(){
   if(tRemain<=0){
@@ -991,7 +1259,7 @@ function tick(){
   }
   tRemain--;updateDisp();updateRing();
 }
-function resetT(){clearInterval(tInterval);tRunning=false;tRemain=tTotal;document.getElementById('tbtn').textContent='시작';updateDisp();updateRing();updateFW('idle');}
+function resetT(){clearInterval(tInterval);tRunning=false;tRemain=tTotal;document.getElementById('tbtn').textContent='시작';updateDisp();updateRing();updateFW('idle');hideFocusFullscreen();}
 function updateDisp(){const m=Math.floor(tRemain/60),s=tRemain%60;document.getElementById('tdisp').textContent=`${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;}
 function updateRing(){document.getElementById('ring').style.strokeDashoffset=CIRC-(CIRC*(tRemain/tTotal));}
 function updateFW(state){
@@ -1383,6 +1651,7 @@ function saveTodayInline(){
   items.push({id:Date.now(),time:time,subj:subj,detail:detail,cat:'study',done:false});
   items.sort(function(a,b){return a.time.localeCompare(b.time);});
   saveTodaySch(items);
+  if(window.saveTodaySchToFirestore) window.saveTodaySchToFirestore(items);
   toggleTodayInline();
   renderTodaySchList();
 }
@@ -1540,7 +1809,7 @@ function goTab(id){
   var content=document.querySelector('.content');
   if(content)content.scrollTop=0;
   if(id==='home'){renderHomeNotices();renderTodaySchList();renderStreak();}
-  if(id==='cheer'){renderQManage();}
+  if(id==='cheer'){renderMemos();}
   if(id==='notice'){renderSchoolNotices();renderMomNotices();}
   if(id==='plan'){renderRanges();}
   if(id==='kafa'){buildKafaDday();renderKafaPrep();renderKafaEvents();}
@@ -1832,6 +2101,73 @@ function openChatGPT(){
   window.open('https://chat.openai.com/?q=' + encodeURIComponent(prompt), '_blank');
 }
 
+
+// ══════════════════════════════
+// 집중 전체화면 모드
+// ══════════════════════════════
+var fsTimerInterval = null;
+
+var CHEER_MSGS = [
+  '지금 이 순간이\n공군사관학교를 만들어 ✈️',
+  '각오하는 순간 뇌는 바뀐다.\n해보자! 됩니다! 🔥',
+  '25분이 쌓여\n합격이 된다 ✈️',
+  '조종사의 집중력은\n지금 이렇게 만들어져 🛫',
+  '불안이 밀려올 때도\n지금 숨 쉬고 집중해 💙',
+];
+
+function showFocusFullscreen(){
+  var el = document.getElementById('focus-fullscreen');
+  if(!el) return;
+  el.classList.add('open');
+  // 랜덤 응원 메시지
+  var msg = CHEER_MSGS[Math.floor(Math.random()*CHEER_MSGS.length)];
+  var msgEl = document.getElementById('fs-cheer-msg');
+  if(msgEl) msgEl.innerHTML = msg.replace(/\n/g,'<br>');
+  // 타이머 동기화
+  updateFsDisplay();
+  if(fsTimerInterval) clearInterval(fsTimerInterval);
+  fsTimerInterval = setInterval(updateFsDisplay, 1000);
+}
+
+function hideFocusFullscreen(){
+  var el = document.getElementById('focus-fullscreen');
+  if(el) el.classList.remove('open');
+  if(fsTimerInterval){ clearInterval(fsTimerInterval); fsTimerInterval=null; }
+}
+
+function updateFsDisplay(){
+  var disp = document.getElementById('fs-timer-display');
+  var sub = document.getElementById('fs-timer-sub');
+  if(!disp) return;
+  var m = Math.floor(tRemain/60);
+  var s = tRemain % 60;
+  disp.textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  if(sub){
+    if(tIsRest) sub.textContent = '휴식 중 😮‍💨';
+    else sub.textContent = '집중 ' + Math.round(tTotal/60) + '분';
+  }
+  // 타이머 종료 감지
+  if(tRemain <= 0) hideFocusFullscreen();
+}
+
+function pauseFromFullscreen(){
+  // 타이머 일시정지
+  if(tRunning){
+    clearInterval(tInterval);
+    tRunning = false;
+    var btn = document.getElementById('tbtn');
+    if(btn) btn.textContent = '계속';
+    updateFW('idle');
+  }
+  hideFocusFullscreen();
+  goTab('timer');
+}
+
+function exitFullscreen(){
+  hideFocusFullscreen();
+  goTab('timer');
+}
+
 window.addEventListener('DOMContentLoaded', function(){
   // D-day
   // D-day 계산 (기말고사 2026-07-02)
@@ -1851,6 +2187,221 @@ window.addEventListener('DOMContentLoaded', function(){
   // 할일
   renderTasks();
 });
+
+// ══════════════════════════════
+// 메모 탭 서브탭
+// ══════════════════════════════
+var _currentMemoAuthor = '윤찬';
+var _currentMemoFilter = '전체';
+var _currentQuoteCat = '전체';
+
+function switchMemoTab(tab){
+  document.getElementById('mpanel-memo').style.display = tab==='memo' ? 'block' : 'none';
+  document.getElementById('mpanel-quote').style.display = tab==='quote' ? 'block' : 'none';
+  document.getElementById('mtab-memo').classList.toggle('on', tab==='memo');
+  document.getElementById('mtab-quote').classList.toggle('on', tab==='quote');
+  if(tab==='memo') renderMemos();
+  else renderQuotes();
+}
+
+function selectMemoAuthor(btn){
+  _currentMemoAuthor = btn.dataset.author;
+  document.querySelectorAll('.memo-author-btn').forEach(function(b){ b.classList.remove('on'); });
+  btn.classList.add('on');
+}
+
+function saveMemo(){
+  var title = document.getElementById('memo-title-inp').value.trim();
+  var content = document.getElementById('memo-content-inp').value.trim();
+  var cat = document.getElementById('memo-cat-inp').value;
+  var pin = document.getElementById('memo-pin-inp').checked;
+  if(!content){ alert('내용을 입력해주세요!'); return; }
+  var list = [];
+  try{ list = JSON.parse(localStorage.getItem('yc_memos')||'[]'); }catch(e){}
+  list.unshift({
+    id: Date.now(), author: _currentMemoAuthor,
+    title: title, content: content, cat: cat, pin: pin,
+    date: new Date().toLocaleDateString('ko-KR',{month:'numeric',day:'numeric'})
+  });
+  localStorage.setItem('yc_memos', JSON.stringify(list));
+  if(window.saveMemoToFirestore) window.saveMemoToFirestore(list[0]);
+  document.getElementById('memo-title-inp').value = '';
+  document.getElementById('memo-content-inp').value = '';
+  document.getElementById('memo-pin-inp').checked = false;
+  renderMemos();
+}
+
+function deleteMemoItem(id){
+  var list = [];
+  try{ list = JSON.parse(localStorage.getItem('yc_memos')||'[]'); }catch(e){}
+  list = list.filter(function(m){ return m.id !== id; });
+  localStorage.setItem('yc_memos', JSON.stringify(list));
+  renderMemos();
+}
+
+function filterMemos(btn){
+  _currentMemoFilter = btn.dataset.filter;
+  document.querySelectorAll('.memo-filter-btn').forEach(function(b){ b.classList.remove('on'); });
+  btn.classList.add('on');
+  renderMemos();
+}
+
+function renderMemos(){
+  var el = document.getElementById('memo-list');
+  if(!el) return;
+  var list = [];
+  try{ list = JSON.parse(localStorage.getItem('yc_memos')||'[]'); }catch(e){}
+  var filtered = _currentMemoFilter==='전체' ? list : list.filter(function(m){ return m.author===_currentMemoFilter; });
+  filtered.sort(function(a,b){ return (b.pin?1:0)-(a.pin?1:0)||b.id-a.id; });
+  if(!filtered.length){
+    el.innerHTML='<div style="text-align:center;padding:1rem;font-size:12px;color:var(--text-hint);">아직 메모가 없어요. 첫 메모를 써봐!</div>';
+    return;
+  }
+  var authorColor={'윤찬':'var(--blue)','엄마':'var(--purple)','아빠':'var(--green)'};
+  el.innerHTML = filtered.map(function(m){
+    var c = authorColor[m.author]||'var(--blue)';
+    return '<div style="padding:.75rem 0;border-bottom:0.5px solid var(--border);">'+
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">'+
+        (m.pin?'<span style="font-size:12px;">📌</span>':'')+
+        '<span style="font-size:11px;font-weight:600;color:'+c+';">'+m.author+'</span>'+
+        '<span style="font-size:10px;padding:1px 6px;border-radius:5px;background:var(--bg-sec);color:var(--text-sec);">'+m.cat+'</span>'+
+        '<span style="font-size:10px;color:var(--text-hint);margin-left:auto;">'+m.date+'</span>'+
+        '<button onclick="deleteMemoItem('+m.id+')" style="background:none;border:none;cursor:pointer;color:var(--text-hint);font-size:16px;padding:0;line-height:1;margin-left:6px;">×</button>'+
+      '</div>'+
+      (m.title?'<div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;">'+m.title+'</div>':'')+
+      '<div style="font-size:12px;color:var(--text-sec);line-height:1.6;">'+m.content+'</div>'+
+    '</div>';
+  }).join('');
+}
+
+function saveQuote(){
+  var text = document.getElementById('q-text-inp').value.trim();
+  var author = document.getElementById('q-author-inp').value.trim();
+  var cat = document.getElementById('q-cat-inp').value;
+  if(!text){ alert('격언을 입력해주세요!'); return; }
+  var list = [];
+  try{ list = JSON.parse(localStorage.getItem('yc_quotes_new')||'[]'); }catch(e){}
+  list.unshift({ id:Date.now(), text:text, author:author, cat:cat });
+  localStorage.setItem('yc_quotes_new', JSON.stringify(list));
+  if(window.saveQuoteToFirestore) window.saveQuoteToFirestore(list[0]);
+  document.getElementById('q-text-inp').value = '';
+  document.getElementById('q-author-inp').value = '';
+  renderQuotes();
+}
+
+function deleteQuoteItem(id){
+  var list = [];
+  try{ list = JSON.parse(localStorage.getItem('yc_quotes_new')||'[]'); }catch(e){}
+  list = list.filter(function(q){ return q.id !== id; });
+  localStorage.setItem('yc_quotes_new', JSON.stringify(list));
+  renderQuotes();
+}
+
+function filterQuotes(btn){
+  _currentQuoteCat = btn.dataset.cat;
+  document.querySelectorAll('.q-filter-btn').forEach(function(b){ b.classList.remove('on'); });
+  btn.classList.add('on');
+  renderQuotes();
+}
+
+function renderQuotes(){
+  var el = document.getElementById('q-manage-list');
+  if(!el) return;
+  var list = [];
+  try{ list = JSON.parse(localStorage.getItem('yc_quotes_new')||'[]'); }catch(e){}
+  // 기본 격언 시드
+  if(!list.length){
+    list=[
+      {id:1,text:'하늘은 스스로 돕는 자를 돕는다.',author:'벤자민 프랭클린',cat:'동기부여'},
+      {id:2,text:'천 리 길도 한 걸음부터.',author:'노자',cat:'성공'},
+      {id:3,text:'배움은 보물이다. 어디서나 그 주인을 따라다닌다.',author:'중국 속담',cat:'공부'},
+      {id:4,text:'불가능이란 노력하지 않는 자의 변명이다.',author:'나폴레옹',cat:'군인/리더십'},
+      {id:5,text:'각오하는 순간 뇌는 바뀐다. 해보자! 됩니다!',author:'윤찬이에게',cat:'동기부여'},
+    ];
+    localStorage.setItem('yc_quotes_new', JSON.stringify(list));
+  }
+  var filtered = list;
+  if(!filtered.length){
+    el.innerHTML='<div style="text-align:center;padding:1rem;font-size:12px;color:var(--text-hint);">격언을 추가해봐!</div>';
+    return;
+  }
+  var catColor={'동기부여':'var(--blue)','성공':'var(--amber-dark)','공부':'var(--purple)','군인/리더십':'var(--red)','삶의 지혜':'var(--green)','엄마 메모':'#D4537E'};
+  el.innerHTML = filtered.map(function(q){
+    var c = catColor[q.cat]||'var(--blue)';
+    return '<div style="padding:.75rem;background:var(--bg-sec);border-radius:8px;margin-bottom:6px;border-left:3px solid '+c+';">'+
+      '<div style="font-size:13px;color:var(--text);line-height:1.6;margin-bottom:4px;">"'+q.text+'"</div>'+
+      '<div style="display:flex;align-items:center;justify-content:space-between;">'+
+        '<div>'+
+          (q.author?'<span style="font-size:11px;color:var(--text-sec);">— '+q.author+'</span>  ':'')+
+          '<span style="font-size:10px;padding:1px 6px;border-radius:5px;background:var(--bg);color:'+c+';">'+q.cat+'</span>'+
+        '</div>'+
+        '<button onclick="deleteQuoteItem('+q.id+')" style="background:none;border:none;cursor:pointer;color:var(--text-hint);font-size:15px;padding:0;line-height:1;">×</button>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+// renderQManage, renderQPending 호환성
+function renderQManage(){ renderMemos(); }
+function renderQPending(){}
+
 </script>
+
+  <!-- 집중 전체화면 오버레이 -->
+  <div id="focus-fullscreen" style="display:none;position:fixed;inset:0;z-index:9999;background:linear-gradient(160deg,#0A1628 0%,#0D2347 40%,#0A1F3E 100%);flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2rem;pointer-events:none;">
+
+    <!-- 별 배경 효과 -->
+    <div style="position:absolute;inset:0;overflow:hidden;pointer-events:none;">
+      <div class="focus-star" style="top:8%;left:12%;animation-delay:0s;"></div>
+      <div class="focus-star" style="top:15%;left:72%;animation-delay:0.8s;"></div>
+      <div class="focus-star" style="top:25%;left:35%;animation-delay:1.5s;"></div>
+      <div class="focus-star" style="top:70%;left:18%;animation-delay:0.3s;"></div>
+      <div class="focus-star" style="top:60%;left:82%;animation-delay:1.2s;"></div>
+      <div class="focus-star" style="top:85%;left:50%;animation-delay:0.6s;"></div>
+      <div class="focus-star focus-star-lg" style="top:40%;left:8%;animation-delay:1s;"></div>
+      <div class="focus-star focus-star-lg" style="top:30%;left:88%;animation-delay:0.4s;"></div>
+    </div>
+
+    <!-- 타이머 표시 -->
+    <div style="position:relative;z-index:1;width:100%;">
+      <div style="font-size:11px;color:#4A90D9;letter-spacing:.2em;margin-bottom:1.5rem;text-transform:uppercase;">✦ 집중 모드 ✦</div>
+
+      <!-- 큰 타이머 -->
+      <div id="fs-timer-display" style="font-size:76px;font-weight:700;color:#fff;letter-spacing:-2px;line-height:1;margin-bottom:.5rem;font-variant-numeric:tabular-nums;">25:00</div>
+      <div id="fs-timer-sub" style="font-size:13px;color:#4A90D9;margin-bottom:2.5rem;">집중 25분</div>
+
+      <!-- NO 메시지 -->
+      <div style="margin-bottom:2.5rem;">
+        <div style="font-size:11px;color:#2A5A9A;margin-bottom:.75rem;letter-spacing:.05em;">지금은 집중할 시간이야</div>
+        <div style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 14px;background:rgba(255,0,0,0.08);border-radius:12px;border:0.5px solid rgba(255,60,60,0.2);">
+            <div style="font-size:22px;filter:grayscale(0.3);">📱</div>
+            <div style="font-size:11px;color:#ff6b6b;font-weight:600;">유튜브 NO</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 14px;background:rgba(255,0,0,0.08);border-radius:12px;border:0.5px solid rgba(255,60,60,0.2);">
+            <div style="font-size:22px;filter:grayscale(0.3);">💬</div>
+            <div style="font-size:11px;color:#ff6b6b;font-weight:600;">인스타 NO</div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 14px;background:rgba(255,0,0,0.08);border-radius:12px;border:0.5px solid rgba(255,60,60,0.2);">
+            <div style="font-size:22px;filter:grayscale(0.3);">🟡</div>
+            <div style="font-size:11px;color:#ff6b6b;font-weight:600;">카톡 NO</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 응원 메시지 -->
+      <div id="fs-cheer-msg" style="font-size:14px;color:#7EB8F7;line-height:1.7;margin-bottom:2rem;font-family:'Malgun Gothic','맑은 고딕',sans-serif;">
+        지금 이 순간이<br>공군사관학교를 만들어 ✈️
+      </div>
+
+      <!-- 버튼들 -->
+      <div style="display:flex;gap:10px;justify-content:center;" id="fs-btns">
+        <button onclick="pauseFromFullscreen()" style="pointer-events:auto;padding:11px 22px;border-radius:10px;border:1px solid rgba(74,144,217,0.4);background:rgba(74,144,217,0.1);color:#7EB8F7;font-size:13px;cursor:pointer;font-family:inherit;touch-action:manipulation;">⏸ 일시정지</button>
+        <button onclick="exitFullscreen()" style="pointer-events:auto;padding:11px 22px;border-radius:10px;border:none;background:#1A4A8A;color:#fff;font-size:13px;cursor:pointer;font-family:inherit;touch-action:manipulation;">타이머로 돌아가기</button>
+      </div>
+    </div>
+
+  </div>
+
 </body>
 </html>
