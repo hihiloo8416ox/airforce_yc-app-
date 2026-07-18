@@ -423,7 +423,7 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
 
         // ── 화면 초기화 ──
         if(typeof window.initAppAfterLogin === 'function') window.initAppAfterLogin();
-        if(typeof renderHomeNotices === 'function') renderHomeNotices();
+        if(typeof renderHomeMemoPreview === 'function') renderHomeMemoPreview();
         if(typeof renderTodaySchList === 'function') renderTodaySchList();
         if(typeof renderMemos === 'function') renderMemos();
         console.log('✅ Firestore 전체 로드 완료');
@@ -432,7 +432,7 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
         console.error('Firestore 로드 오류:', e);
         // 오류 시 localStorage 데이터로 폴백
         if(typeof window.initAppAfterLogin === 'function') window.initAppAfterLogin();
-        if(typeof renderHomeNotices === 'function') renderHomeNotices();
+        if(typeof renderHomeMemoPreview === 'function') renderHomeMemoPreview();
         if(typeof renderTodaySchList === 'function') renderTodaySchList();
       }
     };
@@ -578,27 +578,15 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
         </div>
       </div>
 
-      <!-- ③ 공지 브리핑 -->
+      <!-- ③ 메모 미리보기 (최근 메모 브리핑) -->
       <div class="card">
         <div class="card-hd">
-          <div class="card-hd-l"><i class="ti ti-bell" style="font-size:14px"></i>공지 브리핑</div>
-          <button class="btn btn-sm btn-blue" onclick="toggleNoticeInline()" style="font-size:11px;touch-action:manipulation;"><i class="ti ti-plus" style="font-size:11px;vertical-align:-1px"></i> 추가</button>
+          <div class="card-hd-l"><i class="ti ti-notes" style="font-size:14px"></i>메모 브리핑</div>
+          <button class="btn btn-sm btn-blue" onclick="goTab('cheer')" style="font-size:11px;touch-action:manipulation;">
+            <i class="ti ti-plus" style="font-size:11px;vertical-align:-1px"></i> 메모 탭
+          </button>
         </div>
-        <div id="home-notices"></div>
-        <div id="notice-inline-form" style="display:none;margin-top:.625rem;padding:.875rem;background:var(--bg-sec);border-radius:8px;border:0.5px solid var(--border);">
-          <div style="display:flex;gap:5px;margin-bottom:7px;flex-wrap:wrap;">
-            <button class="btn btn-xs ni-cat on" data-cat="school" onclick="selectNiCat(this)" style="background:var(--blue);color:#fff;border-color:var(--blue);">🏫 학교</button>
-            <button class="btn btn-xs ni-cat" data-cat="family" onclick="selectNiCat(this)">📄 가정통신문</button>
-            <button class="btn btn-xs ni-cat" data-cat="urgent" onclick="selectNiCat(this)">🚨 긴급</button>
-            <button class="btn btn-xs ni-cat" data-cat="mom" onclick="selectNiCat(this)">💜 엄마</button>
-          </div>
-          <input type="text" id="ni-title" placeholder="공지 제목 *" style="width:100%;padding:7px 9px;border-radius:7px;border:0.5px solid var(--border-sec);background:var(--bg);color:var(--text);font-size:13px;font-family:inherit;outline:none;margin-bottom:6px;box-sizing:border-box;"/>
-          <textarea id="ni-desc" placeholder="내용 요약 (선택)" style="width:100%;padding:7px 9px;border-radius:7px;border:0.5px solid var(--border-sec);background:var(--bg);color:var(--text);font-size:12px;font-family:inherit;outline:none;resize:none;height:52px;line-height:1.5;margin-bottom:7px;box-sizing:border-box;"></textarea>
-          <div style="display:flex;gap:6px;">
-            <button class="btn btn-blue" style="flex:2;font-size:12px;padding:8px;" onclick="saveNoticeInline()">저장</button>
-            <button class="btn" style="flex:1;font-size:12px;padding:8px;" onclick="toggleNoticeInline()">취소</button>
-          </div>
-        </div>
+        <div id="home-memo-preview"></div>
       </div>
 
       <!-- ④ 오늘의 일정 -->
@@ -1512,24 +1500,7 @@ function renderMomNotices(){
   if(!momNotices.length){el.innerHTML='<div class="empty">엄마 공지가 없어요.</div>';return;}
   el.innerHTML=momNotices.map(n=>`<div class="notice-item${n.priority==='urgent'?' urgent-item':''}"><div class="n-dot" style="background:var(--purple)"></div><div class="n-body"><div class="n-title">${n.title}</div><div class="n-meta"><span class="n-date">${fmtDate(n.date)}</span><span style="font-size:10px;padding:1px 6px;border-radius:6px;background:var(--purple-light);color:var(--purple-dark);">엄마 공지</span>${n.priority==='urgent'?'<span style="font-size:10px;padding:1px 6px;border-radius:6px;background:var(--red-light);color:var(--red);">긴급</span>':''}</div>${n.desc?`<div class="n-desc">${n.desc}</div>`:''}<div class="n-actions"><button class="btn btn-xs" onclick="toggleMomN(${n.id})">${n.show?'숨기기':'보이기'}</button><button class="btn btn-xs" onclick="deleteMomN(${n.id})">삭제</button></div></div></div>`).join('');
 }
-function renderHomeNotices(){
-  const el=document.getElementById('home-notices');
-  const urgent=schoolNotices.filter(n=>n.cat==='urgent').slice(0,2);
-  const activeMom=momNotices.filter(n=>n.show).slice(0,2);
-  const general=schoolNotices.filter(n=>n.cat!=='urgent').slice(0,1);
-  const all=[...urgent,...activeMom,...general].slice(0,5);
-  if(!all.length){el.innerHTML='<div style="font-size:12px;color:var(--text-hint);text-align:center;padding:.5rem;">공지가 없어요</div>';return;}
-  el.innerHTML=all.map(n=>{
-    const isMom=!n.cat;
-    const isUrgent=n.cat==='urgent'||n.priority==='urgent';
-    const dotColor=isMom?'var(--purple)':isUrgent?'var(--red)':'var(--blue)';
-    const tagBg=isMom?'var(--purple-light)':isUrgent?'var(--red-light)':'var(--blue-light)';
-    const tagColor=isMom?'var(--purple-dark)':isUrgent?'var(--red)':'var(--blue-dark)';
-    const tagLabel=isMom?'엄마':isUrgent?'긴급':'학교';
-    const title=n.title.length>22?n.title.slice(0,22)+'…':n.title;
-    return `<div class="np-item"><div class="np-dot" style="background:${dotColor}"></div><div class="np-text">${title}</div><span class="np-tag" style="background:${tagBg};color:${tagColor};">${tagLabel}</span></div>`;
-  }).join('');
-}
+function renderHomeNotices(){ renderHomeMemoPreview(); }
 function addSchoolNotice(){
   const title=document.getElementById('sf-title').value.trim();
   if(!title){alert('제목을 입력해주세요.');return;}
@@ -2235,7 +2206,7 @@ window.initAppAfterLogin = function(){
     hd.textContent='D-'+dday;
   }
   // 브리핑 렌더
-  renderHomeNotices();
+  renderHomeMemoPreview();
   renderTodaySchList();
   renderStreak();
   renderTasks();
@@ -2247,6 +2218,38 @@ window.initAppAfterLogin = function(){
 var _currentMemoAuthor = '윤찬';
 var _currentMemoFilter = '전체';
 var _currentQuoteCat = '전체';
+
+
+// ══════════════════════════════
+// 브리핑 메모 미리보기
+// ══════════════════════════════
+function renderHomeMemoPreview(){
+  var el = document.getElementById('home-memo-preview');
+  if(!el) return;
+  var list = [];
+  try{ list = JSON.parse(localStorage.getItem('yc_memos')||'[]'); }catch(e){}
+  // 고정 메모 먼저, 최신순 최대 5개
+  list.sort(function(a,b){ return (b.pin?1:0)-(a.pin?1:0)||b.id-a.id; });
+  var recent = list.slice(0,5);
+  if(!recent.length){
+    el.innerHTML='<div style="text-align:center;padding:.75rem;font-size:12px;color:var(--text-hint);">메모 탭에서 메모를 작성하면 여기에 표시돼요!</div>';
+    return;
+  }
+  var authorColor={'윤찬':'var(--blue)','엄마':'var(--purple)','아빠':'var(--green)'};
+  el.innerHTML = recent.map(function(m){
+    var c = authorColor[m.author]||'var(--blue)';
+    var title = m.title || m.content.slice(0,20);
+    var preview = m.content.length > 30 ? m.content.slice(0,30)+'…' : m.content;
+    return '<div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:0.5px solid var(--border);">'
+      + (m.pin?'<span style="font-size:12px;flex-shrink:0;">📌</span>':'<span style="width:16px;flex-shrink:0;"></span>')
+      + '<div style="flex:1;min-width:0;">'
+        + '<div style="font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+title+'</div>'
+        + (m.title?'<div style="font-size:11px;color:var(--text-sec);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+preview+'</div>':'')
+      + '</div>'
+      + '<span style="font-size:10px;color:'+c+';flex-shrink:0;font-weight:600;">'+m.author+'</span>'
+      +'</div>';
+  }).join('');
+}
 
 function switchMemoTab(tab){
   document.getElementById('mpanel-memo').style.display = tab==='memo' ? 'block' : 'none';
@@ -2282,6 +2285,7 @@ function saveMemo(){
   document.getElementById('memo-content-inp').value = '';
   document.getElementById('memo-pin-inp').checked = false;
   renderMemos();
+  renderHomeMemoPreview();
 }
 
 function deleteMemoItem(id){
@@ -2291,6 +2295,7 @@ function deleteMemoItem(id){
   localStorage.setItem('yc_memos', JSON.stringify(list));
   if(window.deleteMemoFromFirestore) window.deleteMemoFromFirestore(id);
   renderMemos();
+  renderHomeMemoPreview();
 }
 
 function filterMemos(btn){
