@@ -567,14 +567,14 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
       <!-- ② 기말고사 D-day -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:.875rem;">
         <div style="background:var(--blue-navy);border-radius:12px;padding:.875rem;border:0.5px solid var(--blue);">
-          <div style="font-size:10px;color:var(--blue-pale);margin-bottom:3px;">기말고사까지</div>
+          <div style="font-size:10px;color:var(--blue-pale);margin-bottom:3px;">공사 1차 필기까지</div>
           <div style="font-size:28px;font-weight:700;color:#fff;" id="h-dday">D-?</div>
-          <div style="font-size:10px;color:var(--blue-pale);margin-top:2px;">2026.07.02</div>
+          <div style="font-size:10px;color:var(--blue-pale);margin-top:2px;">2028년 7월 하순 예정</div>
         </div>
         <div style="background:var(--bg-sec);border-radius:12px;padding:.875rem;border:0.5px solid var(--border);">
-          <div style="font-size:10px;color:var(--text-sec);margin-bottom:3px;">할일 완료</div>
+          <div style="font-size:10px;color:var(--text-sec);margin-bottom:3px;">학습 진행상태</div>
           <div style="font-size:28px;font-weight:700;color:var(--text);" id="h-done">0%</div>
-          <div style="font-size:10px;color:var(--text-sec);margin-top:2px;">오늘 할일</div>
+          <div style="font-size:10px;color:var(--text-sec);margin-top:2px;">완료율</div>
         </div>
       </div>
 
@@ -592,7 +592,7 @@ textarea.fi{resize:vertical;min-height:72px;line-height:1.5;}
       <!-- ④ 오늘의 일정 -->
       <div class="card">
         <div class="card-hd">
-          <div class="card-hd-l"><i class="ti ti-sun" style="font-size:14px"></i>오늘의 일정</div>
+          <div class="card-hd-l"><i class="ti ti-sun" style="font-size:14px"></i>오늘의 학습 일정</div>
           <button class="btn btn-sm btn-blue" onclick="toggleTodayInline()" style="font-size:11px;touch-action:manipulation;"><i class="ti ti-plus" style="font-size:11px;vertical-align:-1px"></i> 추가</button>
         </div>
         <div id="today-sch-list"><div style="text-align:center;padding:.625rem;font-size:12px;color:var(--text-hint);">+ 추가 버튼으로 오늘 일정을 입력해보세요!</div></div>
@@ -1627,26 +1627,74 @@ function getTodaySch(){
 function saveTodaySch(items){
   localStorage.setItem('yc_today_sch',JSON.stringify({date:new Date().toDateString(),items:items}));
 }
+
+// ══════════════════════════════
+// 오늘의 학습 진행상태
+// ══════════════════════════════
+function updateLearningProgress(items){
+  var hdone = document.getElementById('h-done');
+  if(!hdone) return;
+  if(!items || !items.length){
+    hdone.textContent = '0%';
+    hdone.style.color = 'var(--text)';
+    return;
+  }
+  var total = items.length;
+  var done = items.filter(function(i){ return i.done; }).length;
+  var pct = Math.round((done/total)*100);
+  hdone.textContent = pct + '%';
+  // 색상: 0~49% 회색, 50~79% 파랑, 80~99% 초록, 100% 금색
+  if(pct === 100) hdone.style.color = 'var(--amber)';
+  else if(pct >= 80) hdone.style.color = 'var(--green)';
+  else if(pct >= 50) hdone.style.color = 'var(--blue)';
+  else hdone.style.color = 'var(--text)';
+  // 100% 달성 시 축하 메시지
+  var sub = hdone.nextElementSibling;
+  if(sub){
+    if(pct === 100) sub.textContent = '🎉 오늘 목표 완료!';
+    else sub.textContent = done+'/'+total+' 완료';
+  }
+}
+
 function renderTodaySchList(){
   var el=document.getElementById('today-sch-list');
   if(!el)return;
   var items=getTodaySch();
-  if(!items.length){el.innerHTML='<div style="text-align:center;padding:.75rem;font-size:12px;color:var(--text-hint);">+ 추가 버튼으로 일정을 입력해보세요!</div>';return;}
+  if(!items.length){
+    el.innerHTML='<div style="text-align:center;padding:.75rem;font-size:12px;color:var(--text-hint);">+ 추가 버튼으로 학습 일정을 입력해보세요!</div>';
+    updateLearningProgress([]);
+    return;
+  }
   var CAT_C={study:'var(--blue)',school:'var(--green)',academy:'var(--amber)',exercise:'var(--red)',rest:'var(--gray)'};
   var CAT_L={study:'자습',school:'학교',academy:'학원',exercise:'체력',rest:'휴식'};
   el.innerHTML=items.map(function(item){
-    var c=CAT_C[item.cat]||'var(--blue)';var l=CAT_L[item.cat]||item.cat;
-    return '<div style="display:flex;align-items:center;gap:7px;padding:6px 0;border-bottom:0.5px solid var(--border);">'+
-      '<div style="width:16px;height:16px;border-radius:50%;border:1.5px solid var(--border-sec);cursor:pointer;flex-shrink:0;'+(item.done?'background:var(--green);border-color:var(--green);':'')+'" onclick="toggleTodayItem('+item.id+')">'+
-      (item.done?'<svg width="16" height="16" viewBox="0 0 16 16"><path d="M3 8l3.5 3.5L13 4.5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/></svg>':'')+
-      '</div>'+
-      '<div style="font-size:10px;color:var(--text-sec);width:38px;flex-shrink:0;">'+item.time+'</div>'+
-      '<div style="flex:1;font-size:12px;font-weight:600;color:var(--text);'+(item.done?'text-decoration:line-through;color:var(--text-hint);':'')+'">'+item.subj+'</div>'+
-      '<div style="font-size:11px;color:var(--text-sec);flex:2;'+(item.done?'text-decoration:line-through;':'')+'">'+item.detail+'</div>'+
-      '<span style="font-size:9px;padding:1px 5px;border-radius:5px;background:'+c+';color:#fff;flex-shrink:0;">'+l+'</span>'+
-      '<button onclick="deleteTodayItem('+item.id+')" style="background:none;border:none;cursor:pointer;color:var(--text-hint);font-size:15px;padding:0;">×</button>'+
-      '</div>';
+    var c=CAT_C[item.cat]||'var(--blue)';
+    var l=CAT_L[item.cat]||item.cat;
+    var done=item.done||false;
+    return '<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:0.5px solid var(--border);">'
+      // 체크박스
+      +'<div onclick="toggleTodayItem('+item.id+')" style="'
+        +'width:20px;height:20px;border-radius:50%;border:2px solid '+(done?'var(--green)':'var(--border-sec)')+';'
+        +'background:'+(done?'var(--green)':'transparent')+';'
+        +'cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;touch-action:manipulation;">'
+        +(done?'<svg width="12" height="12" viewBox="0 0 12 12"><path d="M2 6l3 3 5-5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>':'')
+      +'</div>'
+      // 시간
+      +'<div style="font-size:10px;color:var(--text-sec);width:36px;flex-shrink:0;">'+item.time+'</div>'
+      // 과목
+      +'<div style="font-size:12px;font-weight:600;color:'+(done?'var(--text-hint)':'var(--text)')+';'
+        +'text-decoration:'+(done?'line-through':'none')+';flex-shrink:0;width:32px;">'+item.subj+'</div>'
+      // 내용
+      +'<div style="flex:1;font-size:11px;color:'+(done?'var(--text-hint)':'var(--text-sec)')+';'
+        +'text-decoration:'+(done?'line-through':'none')+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+item.detail+'</div>'
+      // 카테고리
+      +'<span style="font-size:9px;padding:1px 5px;border-radius:5px;background:'+c+';color:#fff;flex-shrink:0;">'+l+'</span>'
+      // 삭제
+      +'<button onclick="deleteTodayItem('+item.id+')" style="background:none;border:none;cursor:pointer;color:var(--text-hint);font-size:16px;padding:0;flex-shrink:0;touch-action:manipulation;">×</button>'
+      +'</div>';
   }).join('');
+  // 진행상태 업데이트
+  updateLearningProgress(items);
 }
 function toggleTodayInline(){
   var f=document.getElementById('today-inline-form');
@@ -1673,6 +1721,7 @@ function saveTodayInline(){
   if(window.saveTodaySchToFirestore) window.saveTodaySchToFirestore(items);
   toggleTodayInline();
   renderTodaySchList();
+  updateLearningProgress(getTodaySch());
 }
 function toggleTodayItem(id){
   var items=getTodaySch();
@@ -2202,7 +2251,7 @@ window.initAppAfterLogin = function(){
   // D-day
   var hd=document.getElementById('h-dday');
   if(hd){
-    var dday=Math.ceil((new Date('2026-07-02')-new Date())/(1000*60*60*24));
+    var dday=Math.ceil((new Date('2028-07-25')-new Date())/(1000*60*60*24));
     hd.textContent='D-'+dday;
   }
   // 브리핑 렌더
